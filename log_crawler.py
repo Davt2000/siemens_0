@@ -11,8 +11,6 @@ def step_down_listdir(current_listdir, start_dir=''):
     return out
 
 
-#   memory check
-#   *total* check
 def get_data(file):
     """ parses input file and gets maximum memory usage and last number of bricks in mesh"""
     f = open(file)
@@ -32,25 +30,35 @@ def get_data(file):
     return max_peak, total
 
 
+def fail_report(path, text,  loc_r, glob_r):
+    """ writes reports both in start directory(global) and in test directory at path"""
+    print("FAIL: ", path+'\n', text+'\n', sep='', file=glob_r)
+    print("FAIL: ", path+'\n', text+'\n', sep='', file=loc_r)
+    loc_r.close()
+
+
 if __name__ == '__main__':
-    # get wdir from argv
     wdir = os.curdir
     if len(argv) == 2:
         wdir += '/' + argv[1]
-    # assuming logs are organized like example ( wdir/*category*/*test_directory* )
-    # and there are only directories in wdir and in any *category*
-    # get listdir
+
+    # assuming logs are organized like example ( wdir/category/test_directory )
+    # and there are only directories in wdir and in any category
     full_listdir = step_down_listdir(os.listdir(wdir), wdir + '/')
 
-    # for item in a list
+    global_report = open(wdir + "/reference_results.txt", 'w')
+
     for test in full_listdir:
-        # check dirs in a test
+        local_report = open(test + '/report.txt', 'w')
         test_dirs = os.listdir(test)
-        if 'ft_reference' not in test_dirs or 'ft_run' not in test_dirs:
-            print(test, "FAIL; missing directories;")
-            continue
-            # todo : specify message and write report
-        # check missing files
+
+        if 'ft_reference' not in test_dirs and 'ft_run' not in test_dirs:
+            fail_report(test, "directories missing: ft_reference ft_run", local_report, global_report)
+        elif 'ft_reference' not in test_dirs:
+            fail_report(test, "directory missing: ft_reference", local_report, global_report)
+        elif 'ft_run' not in test_dirs:
+            fail_report(test, "directory missingL ft_run", local_report, global_report)
+
         ref_dirs = step_down_listdir([test + '/ft_reference'])
         ref_files = []
         for ref_dir in ref_dirs:
@@ -62,24 +70,32 @@ if __name__ == '__main__':
             run_files += [run_dir.split(sep='/')[-1] + '/' + i for i in os.listdir(run_dir)]
 
         if ref_files != run_files:
-            print(test, "FAIL; missing/extra files")
+            missing_files = set(ref_files) - set(run_files)
+            extra_files = set(run_files) - set(ref_files)
+            report_text = ''
+            if missing_files:
+                report_text += "In ft_run there are missing files " \
+                               "present in ft_reference: {}\n".format(' '.join(missing_files))
+            if extra_files:
+                report_text += "In ft_run there are extra files " \
+                               "not present in ft_reference: {}\n".format(' '.join(extra_files))
+            fail_report(test, report_text, local_report, global_report)
             continue
-            # todo : specify message and write report
 
-        # check *run* for errors and find an end
         run_files_alt = [test + '/ft_run/' + i for i in run_files]
         for file in run_files_alt:
             f = open(file)
+            line_counter = 0
             for line in f:
+                line_counter += 1
                 line_lower = line.lower()
                 if line_lower.find('error') != -1:
-                    print(file, "FAIL; error found\n", line)
-                    # todo : specify message and write report
+                    report_text = '/'.join(file.split(sep='/')[-2:]) + '{}:'.format(line_counter) + line
+                    fail_report(test, report_text, local_report, global_report)
                     break
             f.close()
 
         ref_files_alt = [test + '/ft_reference/' + i for i in run_files]
-
         for ref, run in zip(ref_files_alt, run_files_alt):
             ref_memory, ref_total = get_data(ref)
             run_memory, run_total = get_data(run)
@@ -92,9 +108,9 @@ if __name__ == '__main__':
                 print(test, "FAIL; different bricks criterion 0.1\n")
                 failed = 1
             if not failed:
-                print(test, "OK")
-            # write report
-        # echo in stdout
-        # todo: make appropriate messages and write report
+                print("OK:", test, file=global_report)
+
+    global_report.close()
+
 
 
