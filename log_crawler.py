@@ -38,7 +38,7 @@ def get_relative_name(s):
 def fail_report(path, text, loc_r, glob_r):
     """ writes reports both in start directory(global) and in test directory at path"""
     print("FAIL: ", get_relative_name(path) + '/\n', text, sep='', file=glob_r)
-    print("FAIL: ", get_relative_name(path) + '/\n', text, sep='', file=loc_r)
+    print(text, file=loc_r)
     loc_r.close()
 
 
@@ -47,9 +47,10 @@ if __name__ == '__main__':
     if len(argv) == 2:
         wdir += '/' + argv[1]
 
-    # assuming logs are organized like example ( wdir/category/test_directory )
+    # assuming logs are organized like example ( work_directory/category/test_directory )
     # and there are only directories in wdir and in any category
     full_listdir = step_down_listdir(os.listdir(wdir), wdir + '/')
+    full_listdir.sort()
 
     global_report = open(wdir + "/reference_results.txt", 'w')
 
@@ -93,8 +94,10 @@ if __name__ == '__main__':
             continue
 
         run_files_alt = [test + '/ft_run/' + i for i in run_files]
+        broken_files = 0
         for file in run_files_alt:
             f = open(file)
+            found_finish = 0
             line_counter = 0
             for line in f:
                 line_counter += 1
@@ -102,9 +105,20 @@ if __name__ == '__main__':
                 if line_lower.find('error') != -1:
                     report_text = get_relative_name(file) + '{}:'.format(line_counter) + line[:-1]
                     fail_report(test, report_text, local_report, global_report)
+                    broken_files = 1
                     break
-                # todo: check for "solver finished at"
+                if not found_finish:
+                    if line.find('Solver finished at') != -1:
+                        found_finish = 1
+            if not found_finish and not broken_files:
+                fail_report(test, get_relative_name(file) + ": missing 'Solver finished at'",
+                            local_report, global_report)
+                broken_files = 1
             f.close()
+            if broken_files:
+                break
+        if broken_files:
+            continue
 
         ref_files_alt = [test + '/ft_reference/' + i for i in run_files]
         report_text = ''
