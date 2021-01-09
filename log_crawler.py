@@ -30,10 +30,15 @@ def get_data(file):
     return max_peak, total
 
 
-def fail_report(path, text,  loc_r, glob_r):
+def get_relative_name(s):
+    """ parses long relative name of file or directory and returns it in 'upper_dir/current_file_or_dir' format """
+    return '/'.join(s.split(sep='/')[-2:])
+
+
+def fail_report(path, text, loc_r, glob_r):
     """ writes reports both in start directory(global) and in test directory at path"""
-    print("FAIL: ", path+'\n', text+'\n', sep='', file=glob_r)
-    print("FAIL: ", path+'\n', text+'\n', sep='', file=loc_r)
+    print("FAIL: ", get_relative_name(path) + '/\n', text, sep='', file=glob_r)
+    print("FAIL: ", get_relative_name(path) + '/\n', text, sep='', file=loc_r)
     loc_r.close()
 
 
@@ -54,10 +59,13 @@ if __name__ == '__main__':
 
         if 'ft_reference' not in test_dirs and 'ft_run' not in test_dirs:
             fail_report(test, "directories missing: ft_reference ft_run", local_report, global_report)
+            continue
         elif 'ft_reference' not in test_dirs:
             fail_report(test, "directory missing: ft_reference", local_report, global_report)
+            continue
         elif 'ft_run' not in test_dirs:
             fail_report(test, "directory missingL ft_run", local_report, global_report)
+            continue
 
         ref_dirs = step_down_listdir([test + '/ft_reference'])
         ref_files = []
@@ -75,10 +83,12 @@ if __name__ == '__main__':
             report_text = ''
             if missing_files:
                 report_text += "In ft_run there are missing files " \
-                               "present in ft_reference: {}\n".format(' '.join(missing_files))
+                               "present in ft_reference: {}".format(' '.join(missing_files))
+                if extra_files:
+                    report_text += '\n'
             if extra_files:
                 report_text += "In ft_run there are extra files " \
-                               "not present in ft_reference: {}\n".format(' '.join(extra_files))
+                               "not present in ft_reference: {}".format(' '.join(extra_files))
             fail_report(test, report_text, local_report, global_report)
             continue
 
@@ -90,27 +100,35 @@ if __name__ == '__main__':
                 line_counter += 1
                 line_lower = line.lower()
                 if line_lower.find('error') != -1:
-                    report_text = '/'.join(file.split(sep='/')[-2:]) + '{}:'.format(line_counter) + line
+                    report_text = get_relative_name(file) + '{}:'.format(line_counter) + line[:-1]
                     fail_report(test, report_text, local_report, global_report)
                     break
+                # todo: check for "solver finished at"
             f.close()
 
         ref_files_alt = [test + '/ft_reference/' + i for i in run_files]
+        report_text = ''
         for ref, run in zip(ref_files_alt, run_files_alt):
             ref_memory, ref_total = get_data(ref)
             run_memory, run_total = get_data(run)
-            failed = 0
 
-            if not (0.2 <= ref_memory/run_memory <= 5):
-                print(test, "FAIL; different memory criterion 4\n")
-                failed = 1
-            if not(1/1.1 <= ref_total/run_total <= 1.1):
-                print(test, "FAIL; different bricks criterion 0.1\n")
-                failed = 1
-            if not failed:
-                print("OK:", test, file=global_report)
+            if not (0.2 <= ref_memory / run_memory <= 5):
+                report_text += '{}'.format(get_relative_name(ref))
+                report_text += ": different 'Memory Working Set Peak' " \
+                               "(ft_run={:.2f}, ft_reference={:.2f}, rel.diff={:.2f}, criterion=4)".format(
+                                run_memory, ref_memory, ref_memory/run_memory)
+                if not (1 / 1.1 <= ref_total / run_total <= 1.1):
+                    report_text += '\n'
+            if not (1 / 1.1 <= ref_total / run_total <= 1.1):
+                report_text += '{}'.format(get_relative_name(ref))
+                report_text += ": different 'Total' of bricks " \
+                               "(ft_run={}, ft_reference={}, rel.diff={:.2f}, criterion=0.1)".format(
+                                run_total, ref_total, ref_total/run_total)
+
+        if report_text:
+            fail_report(test, report_text, local_report, global_report)
+        else:
+            local_report.close()
+            print("OK:", get_relative_name(test) + '/', file=global_report)
 
     global_report.close()
-
-
-
