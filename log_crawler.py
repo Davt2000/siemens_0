@@ -1,6 +1,8 @@
 from sys import argv
 import os
 
+DEBUG = False
+
 
 def step_down_listdir(current_listdir, start_dir=''):
     """ listdir with relative path"""
@@ -37,7 +39,8 @@ def get_relative_name(s):
 
 def fail_report(path, text, loc_r, glob_r):
     """ writes reports both in start directory(global) and in test directory at path"""
-    print("FAIL: ", get_relative_name(path) + '/\n', text, sep='', file=glob_r)
+    if DEBUG:
+        print("FAIL: ", get_relative_name(path) + '/\n', text, sep='', file=glob_r)
     print(text, file=loc_r)
     loc_r.close()
 
@@ -52,7 +55,10 @@ if __name__ == '__main__':
     full_listdir = step_down_listdir(os.listdir(wdir), wdir + '/')
     full_listdir.sort()
 
-    global_report = open(wdir + "/reference_results.txt", 'w')
+    if DEBUG:
+        global_report = open(wdir + "/reference_results.txt", 'w')
+    else:
+        global_report = None
 
     for test in full_listdir:
         local_report = open(test + '/report.txt', 'w')
@@ -143,6 +149,7 @@ if __name__ == '__main__':
             fail_report(test, report_text, local_report, global_report)
         else:
             local_report.close()
-            print("OK:", get_relative_name(test) + '/', file=global_report)
-
-    global_report.close()
+            if DEBUG:
+                print("OK:", get_relative_name(test) + '/', file=global_report)
+    if DEBUG:
+        global_report.close()
