@@ -1,8 +1,6 @@
 from sys import argv
 import os
 
-DEBUG = False
-
 
 def step_down_listdir(current_listdir, start_dir=''):
     """ listdir with relative path"""
@@ -37,10 +35,9 @@ def get_relative_name(s):
     return '/'.join(s.split(sep='/')[-2:])
 
 
-def fail_report(path, text, loc_r, glob_r):
+def fail_report(path, text, loc_r):
     """ writes reports both in start directory(global) and in test directory at path"""
-    if DEBUG:
-        print("FAIL: ", get_relative_name(path) + '/\n', text, sep='', file=glob_r)
+    print("FAIL: ", get_relative_name(path) + '/\n', text, sep='')
     print(text, file=loc_r)
     loc_r.close()
 
@@ -55,23 +52,18 @@ if __name__ == '__main__':
     full_listdir = step_down_listdir(os.listdir(wdir), wdir + '/')
     full_listdir.sort()
 
-    if DEBUG:
-        global_report = open(wdir + "/reference_results.txt", 'w')
-    else:
-        global_report = None
-
     for test in full_listdir:
         local_report = open(test + '/report.txt', 'w')
         test_dirs = os.listdir(test)
 
         if 'ft_reference' not in test_dirs and 'ft_run' not in test_dirs:
-            fail_report(test, "directories missing: ft_reference ft_run", local_report, global_report)
+            fail_report(test, "directories missing: ft_reference ft_run", local_report)
             continue
         elif 'ft_reference' not in test_dirs:
-            fail_report(test, "directory missing: ft_reference", local_report, global_report)
+            fail_report(test, "directory missing: ft_reference", local_report)
             continue
         elif 'ft_run' not in test_dirs:
-            fail_report(test, "directory missingL ft_run", local_report, global_report)
+            fail_report(test, "directory missingL ft_run", local_report)
             continue
 
         ref_dirs = step_down_listdir([test + '/ft_reference'])
@@ -96,7 +88,7 @@ if __name__ == '__main__':
             if extra_files:
                 report_text += "In ft_run there are extra files " \
                                "not present in ft_reference: {}".format(' '.join(extra_files))
-            fail_report(test, report_text, local_report, global_report)
+            fail_report(test, report_text, local_report)
             continue
 
         run_files_alt = [test + '/ft_run/' + i for i in run_files]
@@ -110,7 +102,7 @@ if __name__ == '__main__':
                 line_lower = line.lower()
                 if line_lower.find('error') != -1:
                     report_text = get_relative_name(file) + '{}:'.format(line_counter) + line[:-1]
-                    fail_report(test, report_text, local_report, global_report)
+                    fail_report(test, report_text, local_report)
                     broken_files = 1
                     break
                 if not found_finish:
@@ -118,7 +110,7 @@ if __name__ == '__main__':
                         found_finish = 1
             if not found_finish and not broken_files:
                 fail_report(test, get_relative_name(file) + ": missing 'Solver finished at'",
-                            local_report, global_report)
+                            local_report)
                 broken_files = 1
             f.close()
             if broken_files:
@@ -146,10 +138,8 @@ if __name__ == '__main__':
                                 run_total, ref_total, ref_total/run_total)
 
         if report_text:
-            fail_report(test, report_text, local_report, global_report)
+            fail_report(test, report_text, local_report)
         else:
             local_report.close()
-            if DEBUG:
-                print("OK:", get_relative_name(test) + '/', file=global_report)
-    if DEBUG:
-        global_report.close()
+            print("OK:", get_relative_name(test) + '/')
+
